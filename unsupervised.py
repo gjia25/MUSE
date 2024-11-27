@@ -133,7 +133,10 @@ if params.adversarial:
                 n_words_proc = 0
                 for k, _ in stats_str:
                     del stats[k][:]
-
+        # W = trainer.mapping.weight.data.cpu().numpy()
+        # path = os.path.join(trainer.params.exp_path, 'to_reload.pth')
+        # logger.info('* QuickSaving the mapping to %s ...' % path)
+        # torch.save(W, path)
         # embeddings / discriminator evaluation
         to_log = OrderedDict({'n_epoch': n_epoch})
         evaluator.all_eval(to_log)

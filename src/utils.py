@@ -19,6 +19,8 @@ import torch
 from torch import optim
 from logging import getLogger
 
+from gensim.models import KeyedVectors
+
 from .logger import create_logger
 from .dictionary import Dictionary
 
@@ -215,7 +217,7 @@ def get_optimizer(s):
         raise Exception('Unknown optimization method: "%s"' % method)
 
     # check that we give good parameters to the optimizer
-    expected_args = inspect.getargspec(optim_fn.__init__)[0]
+    expected_args = inspect.getfullargspec(optim_fn.__init__)[0]
     assert expected_args[:2] == ['self', 'params']
     if not all(k in expected_args[2:] for k in optim_params.keys()):
         raise Exception('Unexpected parameters: expected "%s", got "%s"' % (
@@ -260,6 +262,18 @@ def clip_parameters(model, clip):
         for x in model.parameters():
             x.data.clamp_(-clip, clip)
 
+def load_kv_embeddings(params, source, full_vocab):
+    """
+    Reload pretrained embeddings from a numpy binary file from gensim word2vec.
+    """
+    lang = params.src_lang if source else params.tgt_lang
+    emb_path = params.src_emb if source else params.tgt_emb
+    reloaded_word_vectors = KeyedVectors.load(emb_path)
+    id2word = {i: w for i, w in enumerate(reloaded_word_vectors.index_to_key)}
+    dico = Dictionary(id2word, reloaded_word_vectors.key_to_index, lang)
+    embeddings = torch.FloatTensor(reloaded_word_vectors.vectors)
+    logger.info("Loaded %i pre-trained word embeddings." % len(dico))
+    return dico, embeddings
 
 def read_txt_embeddings(params, source, full_vocab):
     """
@@ -402,6 +416,8 @@ def load_embeddings(params, source, full_vocab=False):
         return load_pth_embeddings(params, source, full_vocab)
     if emb_path.endswith('.bin'):
         return load_bin_embeddings(params, source, full_vocab)
+    elif emb_path.endswith('.kv'):
+        return load_kv_embeddings(params, source, full_vocab)
     else:
         return read_txt_embeddings(params, source, full_vocab)
 
